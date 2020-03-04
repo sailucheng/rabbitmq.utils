@@ -1,2 +1,2 @@
 # rabbitmq.utils
-rabbitmq util kits
+Rabbitmq utils kit.
