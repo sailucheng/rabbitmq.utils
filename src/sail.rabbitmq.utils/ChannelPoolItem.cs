@@ -8,6 +8,7 @@ namespace sail.rabbitmq.utils
   {
     public IModel Channel { get; }
     private volatile bool _isInUsed;
+    private volatile bool _isDisposed;
     public ChannelPoolItem(IModel channel)
     {
       Channel = channel;
@@ -16,10 +17,13 @@ namespace sail.rabbitmq.utils
     {
       lock (this)
       {
+        if (_isDisposed == true) throw new ObjectDisposedException(nameof(Channel));
+
         while (_isInUsed == true)
         {
           Monitor.Wait(this);
         }
+
         _isInUsed = true;
       }
     }
@@ -27,7 +31,7 @@ namespace sail.rabbitmq.utils
     {
       lock (this)
       {
-        if (_isInUsed == false) return;
+        if (_isInUsed == false || _isDisposed == true) return;
         Monitor.Wait(this, timeout);
       }
     }
@@ -41,7 +45,15 @@ namespace sail.rabbitmq.utils
     }
     public void Dispose()
     {
-      if (Channel.IsOpen) Channel.Dispose();
+      lock (this)
+      {
+        if (Channel.IsOpen)
+        {
+          Channel.Dispose();
+        }
+        _isDisposed = true;
+        Monitor.PulseAll(this);
+      }
     }
   }
 }
